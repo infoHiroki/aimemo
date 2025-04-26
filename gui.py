@@ -28,7 +28,7 @@ class MemoGeneratorGUI:
         """🚀 初期化"""
         self.root = root
         self.root.title("🤖 AI Memo Generator")
-        self.root.geometry("900x700")
+        self.root.geometry("1000x800")
         
         # 設定の読み込み
         self.config_path = "config.json"
