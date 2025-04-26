@@ -43,13 +43,20 @@ class MemoGenerator:
             return {
                 "llm": {
                     "provider": "openai",
-                    "api_key": "",
+                    "openai_api_key": "",
+                    "anthropic_api_key": "",
+                    "google_api_key": "",
                     "model": "gpt-4o-mini",
                     "temperature": 0.3,
                     "max_tokens": 1500
                 },
                 "templates": {
                     "default": "以下は会議の文字起こしです。これを元に議事録を作成してください。\n\n{transcription}"
+                },
+                "providers": {
+                    "openai": ["gpt-3.5-turbo", "gpt-4o-mini"],
+                    "anthropic": ["claude-3-haiku-20240307"],
+                    "google": ["gemini-pro"]
                 }
             }
     
@@ -123,7 +130,7 @@ class MemoGenerator:
     
     def _call_openai_api(self, prompt: str) -> Optional[str]:
         """🔄 OpenAI APIを呼び出す"""
-        api_key = self.config["llm"]["api_key"]
+        api_key = self.config["llm"].get("openai_api_key", "")
         if not api_key:
             logger.error("🔑 OpenAI APIキーが設定されていません。")
             return None
@@ -163,7 +170,7 @@ class MemoGenerator:
     
     def _call_anthropic_api(self, prompt: str) -> Optional[str]:
         """🔄 Anthropic Claude APIを呼び出す"""
-        api_key = self.config["llm"]["api_key"]
+        api_key = self.config["llm"].get("anthropic_api_key", "")
         if not api_key:
             logger.error("🔑 Anthropic APIキーが設定されていません。")
             return None
@@ -271,13 +278,16 @@ class MemoGenerator:
             logger.warning(f"⚠️ プロバイダー '{provider}' では未知のモデル: {model}")
         self.config["llm"]["model"] = model
     
-    def set_api_key(self, api_key: str):
+    def set_api_key(self, api_key: str, provider_type: Optional[str] = None):
         """🔑 APIキーを設定"""
-        self.config["llm"]["api_key"] = api_key
-    
-    def set_google_api_key(self, api_key: str):
-        """🔑 Google APIキーを設定"""
-        self.config["llm"]["google_api_key"] = api_key
+        provider = provider_type if provider_type else self.config["llm"]["provider"]
+        
+        if provider == "openai":
+            self.config["llm"]["openai_api_key"] = api_key
+        elif provider == "anthropic":
+            self.config["llm"]["anthropic_api_key"] = api_key
+        elif provider == "google":
+            self.config["llm"]["google_api_key"] = api_key
     
     def set_temperature(self, temperature: float):
         """🌡️ temperatureパラメータを設定"""
@@ -301,8 +311,9 @@ def parse_arguments():
     parser.add_argument("--config", "-c", default="config.json", help="設定ファイルパス")
     parser.add_argument("--provider", "-p", help="LLMプロバイダー（openai/anthropic/google）")
     parser.add_argument("--model", "-m", help="使用するモデル名")
-    parser.add_argument("--api-key", "-k", help="APIキー")
-    parser.add_argument("--google-api-key", "-gk", help="Google APIキー（Googleプロバイダー使用時）")
+    parser.add_argument("--openai-api-key", "-ok", help="OpenAI APIキー")
+    parser.add_argument("--anthropic-api-key", "-ak", help="Anthropic APIキー")
+    parser.add_argument("--google-api-key", "-gk", help="Google APIキー")
     parser.add_argument("--temperature", "-t", type=float, help="Temperature値（0.0〜1.0）")
     parser.add_argument("--max-tokens", "-mt", type=int, help="最大トークン数")
     
@@ -324,11 +335,14 @@ def main():
     if args.model:
         generator.set_model(args.model)
     
-    if args.api_key:
-        generator.set_api_key(args.api_key)
+    if args.openai_api_key:
+        generator.set_api_key(args.openai_api_key, "openai")
+    
+    if args.anthropic_api_key:
+        generator.set_api_key(args.anthropic_api_key, "anthropic")
     
     if args.google_api_key:
-        generator.set_google_api_key(args.google_api_key)
+        generator.set_api_key(args.google_api_key, "google")
     
     if args.temperature is not None:
         generator.set_temperature(args.temperature)

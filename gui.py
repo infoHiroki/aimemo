@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-🖥️ AI Memo Generator GUI - 文字起こしから議事録を生成するシンプルなGUIインターフェース
+🖥️ AI Memo Generator GUI - 文字起こしからAIメモを生成するシンプルなGUIインターフェース
 """
 
 import os
@@ -28,7 +28,7 @@ class MemoGeneratorGUI:
         """🚀 初期化"""
         self.root = root
         self.root.title("🤖 AI Memo Generator")
-        self.root.geometry("900x800")
+        self.root.geometry("900x700")
         
         # 設定の読み込み
         self.config_path = "config.json"
@@ -53,14 +53,15 @@ class MemoGeneratorGUI:
             return {
                 "llm": {
                     "provider": "openai",
-                    "api_key": "",
+                    "openai_api_key": "",
+                    "anthropic_api_key": "",
+                    "google_api_key": "",
                     "model": "gpt-4o-mini",
                     "temperature": 0.3,
-                    "max_tokens": 1500,
-                    "google_api_key": ""
+                    "max_tokens": 1500
                 },
                 "templates": {
-                    "default": "以下は会議の文字起こしです。これを元に議事録を作成してください。\n\n{transcription}"
+                    "default": "以下は会議の文字起こしです。これを元にAIメモを作成してください。\n\n{transcription}"
                 },
                 "providers": {
                     "openai": ["gpt-3.5-turbo", "gpt-4o-mini"],
@@ -145,7 +146,17 @@ class MemoGeneratorGUI:
         ttk.Label(llm_frame, textvariable=self.current_model_var).grid(row=0, column=3, sticky=tk.W, padx=5, pady=5)
         
         ttk.Label(llm_frame, text="APIキー:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=5)
-        api_key = self.config["llm"]["api_key"]
+        
+        # 現在選択されているプロバイダーのAPIキー状態を表示
+        provider = self.config["llm"]["provider"]
+        api_key = ""
+        if provider == "openai":
+            api_key = self.config["llm"].get("openai_api_key", "")
+        elif provider == "anthropic":
+            api_key = self.config["llm"].get("anthropic_api_key", "")
+        elif provider == "google":
+            api_key = self.config["llm"].get("google_api_key", "")
+        
         masked_key = "設定済み" if api_key else "未設定"
         self.current_api_key_var = tk.StringVar(value=masked_key)
         ttk.Label(llm_frame, textvariable=self.current_api_key_var).grid(row=1, column=1, sticky=tk.W, padx=5, pady=5)
@@ -154,7 +165,7 @@ class MemoGeneratorGUI:
         button_frame = ttk.Frame(parent)
         button_frame.pack(fill=tk.X, pady=10)
         
-        self.generate_button = ttk.Button(button_frame, text="🚀 議事録生成", command=self.generate_memos)
+        self.generate_button = ttk.Button(button_frame, text="🚀 AIメモ生成", command=self.generate_memos)
         self.generate_button.pack(side=tk.RIGHT, padx=5)
         
         # 結果表示エリア
@@ -186,15 +197,20 @@ class MemoGeneratorGUI:
         api_frame = ttk.LabelFrame(parent, text="🔑 APIキー設定", padding=10)
         api_frame.pack(fill=tk.X, pady=5)
         
-        ttk.Label(api_frame, text="OpenAI/Anthropic APIキー:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
-        self.api_key_var = tk.StringVar(value=self.config["llm"]["api_key"])
-        api_key_entry = ttk.Entry(api_frame, textvariable=self.api_key_var, width=50, show="*")
-        api_key_entry.grid(row=0, column=1, sticky=tk.EW, padx=5, pady=5)
+        ttk.Label(api_frame, text="OpenAI APIキー:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
+        self.openai_api_key_var = tk.StringVar(value=self.config["llm"].get("openai_api_key", ""))
+        openai_api_key_entry = ttk.Entry(api_frame, textvariable=self.openai_api_key_var, width=50, show="*")
+        openai_api_key_entry.grid(row=0, column=1, sticky=tk.EW, padx=5, pady=5)
         
-        ttk.Label(api_frame, text="Google APIキー:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=5)
+        ttk.Label(api_frame, text="Anthropic APIキー:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=5)
+        self.anthropic_api_key_var = tk.StringVar(value=self.config["llm"].get("anthropic_api_key", ""))
+        anthropic_api_key_entry = ttk.Entry(api_frame, textvariable=self.anthropic_api_key_var, width=50, show="*")
+        anthropic_api_key_entry.grid(row=1, column=1, sticky=tk.EW, padx=5, pady=5)
+        
+        ttk.Label(api_frame, text="Google APIキー:").grid(row=2, column=0, sticky=tk.W, padx=5, pady=5)
         self.google_api_key_var = tk.StringVar(value=self.config["llm"].get("google_api_key", ""))
         google_api_key_entry = ttk.Entry(api_frame, textvariable=self.google_api_key_var, width=50, show="*")
-        google_api_key_entry.grid(row=1, column=1, sticky=tk.EW, padx=5, pady=5)
+        google_api_key_entry.grid(row=2, column=1, sticky=tk.EW, padx=5, pady=5)
         
         # パラメータ設定
         param_frame = ttk.LabelFrame(parent, text="⚙️ パラメータ設定", padding=10)
@@ -248,7 +264,8 @@ class MemoGeneratorGUI:
         # 既存の設定を更新
         self.config["llm"]["provider"] = self.provider_var.get()
         self.config["llm"]["model"] = self.model_var.get()
-        self.config["llm"]["api_key"] = self.api_key_var.get()
+        self.config["llm"]["openai_api_key"] = self.openai_api_key_var.get()
+        self.config["llm"]["anthropic_api_key"] = self.anthropic_api_key_var.get()
         self.config["llm"]["google_api_key"] = self.google_api_key_var.get()
         self.config["llm"]["temperature"] = self.temp_var.get()
         self.config["llm"]["max_tokens"] = self.max_tokens_var.get()
@@ -264,7 +281,16 @@ class MemoGeneratorGUI:
             self.current_provider_var.set(self.config["llm"]["provider"])
             self.current_model_var.set(self.config["llm"]["model"])
             
-            api_key = self.config["llm"]["api_key"]
+            # 現在選択されているプロバイダーのAPIキー状態を表示
+            provider = self.config["llm"]["provider"]
+            api_key = ""
+            if provider == "openai":
+                api_key = self.config["llm"]["openai_api_key"]
+            elif provider == "anthropic":
+                api_key = self.config["llm"]["anthropic_api_key"]
+            elif provider == "google":
+                api_key = self.config["llm"]["google_api_key"]
+            
             masked_key = "設定済み" if api_key else "未設定"
             self.current_api_key_var.set(masked_key)
             
@@ -312,19 +338,24 @@ class MemoGeneratorGUI:
     
     def update_generator_settings(self):
         """🔄 UIの設定をMemoGeneratorに適用"""
-        self.generator.set_provider(self.config["llm"]["provider"])
+        provider = self.config["llm"]["provider"]
+        self.generator.set_provider(provider)
         self.generator.set_model(self.config["llm"]["model"])
-        self.generator.set_api_key(self.config["llm"]["api_key"])
         
-        if self.config["llm"]["provider"] == "google":
-            self.generator.set_google_api_key(self.config["llm"]["google_api_key"])
+        # プロバイダーに対応するAPIキーを設定
+        if provider == "openai":
+            self.generator.set_api_key(self.config["llm"]["openai_api_key"], provider)
+        elif provider == "anthropic":
+            self.generator.set_api_key(self.config["llm"]["anthropic_api_key"], provider)
+        elif provider == "google":
+            self.generator.set_api_key(self.config["llm"]["google_api_key"], provider)
         
         self.generator.set_temperature(self.config["llm"]["temperature"])
         self.generator.set_max_tokens(self.config["llm"]["max_tokens"])
         self.generator.set_template(self.config["templates"]["default"])
     
     def generate_memos(self):
-        """🚀 複数ファイルの議事録生成処理を実行"""
+        """🚀 複数ファイルのAIメモ生成処理を実行"""
         if not self.input_files:
             messagebox.showerror("エラー", "処理するファイルを追加してください。")
             return
@@ -343,7 +374,7 @@ class MemoGeneratorGUI:
         # UI状態の更新
         self.generate_button.config(state=tk.DISABLED, text="⏳ 生成中...")
         self.result_text.delete(1.0, tk.END)
-        self.result_text.insert(tk.END, f"⏳ 議事録生成を開始します（{len(self.input_files)}ファイル）\n")
+        self.result_text.insert(tk.END, f"⏳ AIメモ生成を開始します（{len(self.input_files)}ファイル）\n")
         self.root.update()
         
         # 別スレッドで生成処理を実行
@@ -367,7 +398,7 @@ class MemoGeneratorGUI:
                     base_name = os.path.splitext(input_file)[0]
                     output_file = f"{base_name}_memo.txt"
                 
-                # 議事録生成
+                # AIメモ生成
                 result = self.generator.generate_memo_from_file(input_file, output_file)
                 
                 results.append((input_file, output_file, result is not None))
@@ -393,7 +424,7 @@ class MemoGeneratorGUI:
     
     def _show_final_results(self, results: List[tuple]):
         """📊 最終結果の表示"""
-        self.generate_button.config(state=tk.NORMAL, text="🚀 議事録生成")
+        self.generate_button.config(state=tk.NORMAL, text="🚀 AIメモ生成")
         
         success_count = sum(1 for _, _, success in results if success)
         fail_count = len(results) - success_count
@@ -402,7 +433,7 @@ class MemoGeneratorGUI:
         self.result_text.insert(tk.END, f"✅ 処理完了: 成功 {success_count} / 失敗 {fail_count} / 合計 {len(results)}\n\n")
         
         if success_count > 0:
-            self.result_text.insert(tk.END, "📄 生成された議事録:\n")
+            self.result_text.insert(tk.END, "📄 生成されたAIメモ:\n")
             for input_file, output_file, success in results:
                 if success:
                     self.result_text.insert(tk.END, f"- {os.path.basename(input_file)} → {output_file}\n")
